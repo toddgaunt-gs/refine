@@ -6,7 +6,8 @@ import (
 )
 
 //const text = "2 < 30 && 1 > 5"
-const text = "2 + 5 - 1 * 2"
+//const text = "2 + 5 + -1 * -2"
+const text = "(2 < 5) (==) (2 < 1)"
 
 func TestLexer(t *testing.T) {
 	tokens := lex("test", text)

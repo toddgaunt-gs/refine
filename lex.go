@@ -23,11 +23,14 @@ const (
 	tokenLessThanOrEqual
 	tokenGreaterThan
 	tokenGreaterThanOrEqual
+	tokenNot
+	tokenNotEqual
 	tokenMinus
 	tokenMinusMinus
 	tokenPlus
 	tokenPlusPlus
 	tokenAsterisk
+	tokenDivide
 	tokenBitwiseAnd
 	tokenBitwiseOr
 	tokenLeftShift
@@ -124,16 +127,29 @@ func (l *lexer) errorf(format string, args ...any) stateFunc {
 	}
 }
 
+func lexExclamation(l *lexer) stateFunc {
+	if l.accept("!") {
+		if l.accept("=") {
+			l.emit(tokenNotEqual)
+		} else {
+			l.emit(tokenNot)
+		}
+		return lexStart
+	} else {
+		return l.errorf("expected '!'")
+	}
+}
+
 func lexEqual(l *lexer) stateFunc {
 	if l.accept("=") {
 		if l.accept("=") {
 			l.emit(tokenEqual)
 		} else {
-			return l.errorf("'=' is not a valid token")
+			return l.errorf("expected '=='")
 		}
 		return lexStart
 	} else {
-		return l.errorf("couldn't lex equal")
+		return l.errorf("expected '='")
 	}
 }
 
@@ -263,6 +279,16 @@ func lexStart(l *lexer) stateFunc {
 		l.ignore()
 
 		switch {
+		case l.next("("):
+			l.accept("(")
+			l.emit(tokenLeftParen)
+			return lexStart
+		case l.next(")"):
+			l.accept(")")
+			l.emit(tokenRightParen)
+			return lexStart
+		case l.next("!"):
+			return lexExclamation
 		case l.next("="):
 			return lexEqual
 		case l.next("<"):
