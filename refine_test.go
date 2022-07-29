@@ -1,13 +1,14 @@
 package refine
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 )
 
 //const text = "2 < 30 && 1 > 5"
+//const text = "(2 < 5) == (2 < 1)"
 //const text = "2 + 5 + -1 * -2"
-const text = "(2 < 5) (==) (2 < 1)"
+const text = "foo > bar"
 
 func TestLexer(t *testing.T) {
 	tokens := lex("test", text)
@@ -17,20 +18,102 @@ func TestLexer(t *testing.T) {
 			if tok.kind == tokenEOF {
 				return
 			}
-			fmt.Printf("Token: %d '%s'\n", tok.kind, tok.text)
 		}
 	}
 }
 
 func TestParser(t *testing.T) {
 	tokens := lex("test", text)
-	expr, err := parse(tokens)
+	_, err := parse(tokens)
 	if err != nil {
 		t.Fatalf("failed to parse: %v", err)
 	}
-	box, err := expr.Eval()
-	if err != nil {
-		t.Fatalf("failed to eval: %v", err)
+}
+
+func TestCheck(t *testing.T) {
+	type checkDependent struct {
+		A int `refine:"A > B"`
+		B int `refine:"B >= 0"`
 	}
-	fmt.Printf("(%s) evaluates to: %v\n", text, box.val)
+
+	type checkNil struct {
+		A *int           `refine:"A != nil"`
+		B *int           `refine:"B == nil"`
+		C *int           `refine:"C == B"`
+		D []string       `refine:"D != nil"`
+		E map[int]string `refine:"E != nil"`
+	}
+
+	type checkString struct {
+		S string "refine:\"S == `foo`\""
+	}
+
+	testCases := []struct {
+		name  string
+		value any
+
+		want error
+	}{
+		{
+			name:  "NotStructErr",
+			value: 2,
+			want:  ErrNotStruct,
+		},
+		{
+			name: "DependentFields",
+			value: checkDependent{
+				A: 2,
+				B: 1,
+			},
+
+			want: nil,
+		},
+		{
+			name: "DependentFieldsErr",
+			value: checkDependent{
+				A: 2,
+				B: 2,
+			},
+
+			want: ErrNotMet,
+		},
+		{
+			name: "NilFields",
+			value: checkNil{
+				A: func(x int) *int { return &x }(2),
+				B: nil,
+				C: nil,
+				D: []string{},
+				E: map[int]string{},
+			},
+
+			want: nil,
+		},
+		{
+			name: "StringMet",
+			value: checkString{
+				S: "foo",
+			},
+
+			want: nil,
+		},
+		{
+			name: "StringNotMet",
+			value: checkString{
+				S: "not foo",
+			},
+
+			want: ErrNotMet,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := Check(tc.value)
+			if !errors.Is(got, tc.want) {
+				t.Fatalf("got %v; want %v", got, tc.want)
+			}
+		})
+	}
 }

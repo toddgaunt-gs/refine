@@ -16,8 +16,8 @@ const (
 	tokenLeftParen
 	tokenRightParen
 	// Operators
-	tokenLogicalAnd
 	tokenLogicalOr
+	tokenLogicalAnd
 	tokenEqual
 	tokenLessThan
 	tokenLessThanOrEqual
@@ -31,8 +31,8 @@ const (
 	tokenPlusPlus
 	tokenAsterisk
 	tokenDivide
-	tokenBitwiseAnd
 	tokenBitwiseOr
+	tokenBitwiseAnd
 	tokenLeftShift
 	tokenRightShift
 	// Atoms
@@ -43,7 +43,7 @@ const (
 
 const eof = 0
 const whitespace = " \t\r\v\n"
-const delimiters = whitespace + "()=<>+-*/"
+const delimiters = string(rune(eof)) + whitespace + "()=<>+-*/"
 
 type token struct {
 	kind tokenKind
@@ -196,6 +196,20 @@ func lexSymbol(l *lexer) stateFunc {
 	}
 }
 
+func lexString(l *lexer) stateFunc {
+	if l.accept("`") {
+		for r := l.get(); r != '`'; r = l.get() {
+			if r == eof {
+				return l.errorf("reached EOF when reading string")
+			}
+		}
+		l.emit(tokenString)
+		return lexStart
+	} else {
+		return l.errorf("expected '`'")
+	}
+}
+
 func lexNumber(l *lexer) stateFunc {
 	if l.accept("123456789") {
 		for l.accept("0123456789") {
@@ -205,7 +219,12 @@ func lexNumber(l *lexer) stateFunc {
 		l.emit(tokenInteger)
 		return lexStart
 	} else if l.accept("0") {
-		panic("not implemented")
+		if l.next(delimiters) {
+			l.emit(tokenInteger)
+		} else {
+			panic("not implemented")
+		}
+		return lexStart
 	} else {
 		return l.errorf("expected an ASCII digit")
 	}
@@ -305,6 +324,8 @@ func lexStart(l *lexer) stateFunc {
 			return lexAsterisk
 		case l.next("-"):
 			return lexMinus
+		case l.next("`"):
+			return lexString
 		case l.next("0123456789"):
 			return lexNumber
 		case unicode.IsLetter(l.peek()):
@@ -315,7 +336,7 @@ func lexStart(l *lexer) stateFunc {
 			l.emit(tokenEOF)
 			return nil
 		} else {
-			return l.errorf("unexpected rune: %c", r)
+			return l.errorf("unexpected rune '%c'", r)
 		}
 	}
 }

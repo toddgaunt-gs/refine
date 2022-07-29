@@ -3,8 +3,11 @@ package refine
 import (
 	"errors"
 	"fmt"
-	"strconv"
 )
+
+type expression interface {
+	Accept(v Visitor)
+}
 
 type unaryOperator int
 
@@ -12,232 +15,33 @@ const (
 	unaryMinus unaryOperator = iota
 	unaryPlus
 	unaryNot
+	unaryDereference
 )
-
-type binaryOperator int
-
-const (
-	binaryMinus binaryOperator = iota
-	binaryPlus
-	binaryMultiply
-	binaryDivide
-	binaryEqual
-	binaryLessThan
-	binaryLessThanOrEqual
-	binaryGreaterThan
-	binaryGreaterThanOrEqual
-	binaryLogicalAnd
-	binaryLogicalOr
-)
-
-type atom int
-
-const (
-	atomSymbol atom = iota
-	atomInteger
-	atomString
-)
-
-type boxKind int
-
-const (
-	boxNil boxKind = iota
-	boxBool
-	boxInteger
-	boxString
-)
-
-type box struct {
-	kind boxKind
-	val  any
-}
-
-func evalMultiply(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxInteger:
-		return &box{
-			kind: boxInteger,
-			val:  left.val.(int) * right.val.(int),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalAdd(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxString:
-		return &box{
-			kind: boxString,
-			val:  left.val.(string) + right.val.(string),
-		}, nil
-	case boxInteger:
-		return &box{
-			kind: boxInteger,
-			val:  left.val.(int) + right.val.(int),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalSubtract(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxInteger:
-		return &box{
-			kind: boxInteger,
-			val:  left.val.(int) - right.val.(int),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalEqual(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxString:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(string) == right.val.(string),
-		}, nil
-	case boxInteger:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(int) == right.val.(int),
-		}, nil
-	case boxBool:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(bool) == right.val.(bool),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalLessThan(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxString:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(string) < right.val.(string),
-		}, nil
-	case boxInteger:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(int) < right.val.(int),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalGreaterThan(left, right *box) (*box, error) {
-	if left.kind != right.kind {
-		return nil, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
-	}
-
-	switch left.kind {
-	case boxString:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(string) > right.val.(string),
-		}, nil
-	case boxInteger:
-		return &box{
-			kind: boxBool,
-			val:  left.val.(int) > right.val.(int),
-		}, nil
-	default:
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalUnaryNot(expr *box) (*box, error) {
-	switch expr.kind {
-	case boxBool:
-		return &box{
-			kind: boxBool,
-			val:  !expr.val.(bool),
-		}, nil
-	default:
-		//TODO
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalUnaryMinus(expr *box) (*box, error) {
-	switch expr.kind {
-	case boxInteger:
-		return &box{
-			kind: boxInteger,
-			val:  -expr.val.(int),
-		}, nil
-	default:
-		//TODO
-		return nil, errors.New("invalid type!")
-	}
-}
-
-func evalUnaryPlus(expr *box) (*box, error) {
-	switch expr.kind {
-	case boxInteger:
-		return &box{
-			kind: boxInteger,
-			val:  +expr.val.(int),
-		}, nil
-	default:
-		//TODO
-		return nil, errors.New("invalid type!")
-	}
-}
-
-type expression interface {
-	Eval() (*box, error)
-}
 
 type unaryExpression struct {
 	op   unaryOperator
 	expr expression
 }
 
-func (u *unaryExpression) Eval() (*box, error) {
-	expr, err := u.expr.Eval()
-	if err != nil {
-		return nil, err
-	}
+type binaryOperator int
 
-	switch u.op {
-	case unaryMinus:
-		return evalUnaryMinus(expr)
-	case unaryPlus:
-		return evalUnaryPlus(expr)
-	case unaryNot:
-		return evalUnaryNot(expr)
-	}
+const (
+	binaryMultiply binaryOperator = iota
+	binaryDivide
 
-	panic(fmt.Sprintf("unknown unary operator: %d!", u.op))
-}
+	binaryMinus
+	binaryPlus
+
+	binaryEqual
+	binaryNotEqual
+	binaryLessThan
+	binaryLessThanOrEqual
+	binaryGreaterThan
+	binaryGreaterThanOrEqual
+
+	binaryLogicalOr
+	binaryLogicalAnd
+)
 
 type binaryExpression struct {
 	op    binaryOperator
@@ -245,65 +49,25 @@ type binaryExpression struct {
 	right expression
 }
 
-func (b *binaryExpression) Eval() (*box, error) {
-	left, err := b.left.Eval()
-	if err != nil {
-		return nil, err
-	}
-
-	right, err := b.right.Eval()
-	if err != nil {
-		return nil, err
-	}
-
-	switch b.op {
-	case binaryMultiply:
-		return evalMultiply(left, right)
-	case binaryPlus:
-		return evalAdd(left, right)
-	case binaryMinus:
-		return evalSubtract(left, right)
-	case binaryEqual:
-		return evalEqual(left, right)
-	case binaryLessThan:
-		return evalLessThan(left, right)
-	case binaryGreaterThan:
-		return evalGreaterThan(left, right)
-	}
-
-	panic(fmt.Sprintf("unknown binary operator: %d!", b.op))
-}
-
-type atomExpression struct {
-	kind atom
+type stringExpression struct {
 	text string
 }
 
-func (a *atomExpression) Eval() (*box, error) {
-	switch a.kind {
-	case atomSymbol:
-		panic("not implemented!")
-	case atomInteger:
-		i, err := strconv.Atoi(a.text)
-		if err != nil {
-			panic("couldn't convert integer token to integer value!")
-		}
-		return &box{
-			kind: boxInteger,
-			val:  i,
-		}, nil
-	case atomString:
-		return &box{
-			kind: boxString,
-			val:  a.text,
-		}, nil
-	}
-	panic("unkown atom!")
+type integerExpression struct {
+	text string
+}
+
+type symbolExpression struct {
+	kind Kind
+	text string
 }
 
 type parser struct {
-	last   token
-	tok    token
+	// last is the token that was last accepted token within a parsing function.
+	last token
+	// tok is the current token looking to be accepted from a parsing function.
+	tok token
+	// tokens streams tokens from the lexer to the parser.
 	tokens chan token
 }
 
@@ -330,15 +94,19 @@ func parseAtom(p *parser) (expression, error) {
 	}
 
 	if p.accept(tokenSymbol) {
-		return &atomExpression{
-			kind: atomSymbol,
+		return &symbolExpression{
 			text: p.last.text,
 		}, nil
 	}
 
+	if p.accept(tokenString) {
+		return &stringExpression{
+			text: p.last.text[1 : len(p.last.text)-1],
+		}, nil
+	}
+
 	if p.accept(tokenInteger) {
-		return &atomExpression{
-			kind: atomInteger,
+		return &integerExpression{
 			text: p.last.text,
 		}, nil
 	}
@@ -347,28 +115,20 @@ func parseAtom(p *parser) (expression, error) {
 }
 
 func parseUnary(p *parser) (expression, error) {
-	if p.accept(tokenPlus) {
-		expr, err := parseUnary(p)
-		return &unaryExpression{
-			op:   unaryPlus,
-			expr: expr,
-		}, err
+	var accepted = map[tokenKind]unaryOperator{
+		tokenPlus:  unaryPlus,
+		tokenMinus: unaryMinus,
+		tokenNot:   unaryNot,
 	}
 
-	if p.accept(tokenMinus) {
-		expr, err := parseUnary(p)
-		return &unaryExpression{
-			op:   unaryMinus,
-			expr: expr,
-		}, err
-	}
-
-	if p.accept(tokenNot) {
-		expr, err := parseUnary(p)
-		return &unaryExpression{
-			op:   unaryNot,
-			expr: expr,
-		}, err
+	for kind, op := range accepted {
+		if p.accept(kind) {
+			expr, err := parseUnary(p)
+			return &unaryExpression{
+				op:   op,
+				expr: expr,
+			}, err
+		}
 	}
 
 	return parseAtom(p)
@@ -380,22 +140,20 @@ func parseBinaryMultiplicative(p *parser) (expression, error) {
 		return nil, err
 	}
 
-	if p.accept(tokenAsterisk) {
-		right, err := parseBinaryMultiplicative(p)
-		return &binaryExpression{
-			op:    binaryMultiply,
-			left:  left,
-			right: right,
-		}, err
+	var accepted = map[tokenKind]binaryOperator{
+		tokenAsterisk: binaryMultiply,
+		tokenDivide:   binaryDivide,
 	}
 
-	if p.accept(tokenDivide) {
-		right, err := parseBinaryMultiplicative(p)
-		return &binaryExpression{
-			op:    binaryDivide,
-			left:  left,
-			right: right,
-		}, err
+	for kind, op := range accepted {
+		if p.accept(kind) {
+			right, err := parseBinaryMultiplicative(p)
+			return &binaryExpression{
+				op:    op,
+				left:  left,
+				right: right,
+			}, err
+		}
 	}
 
 	return left, nil
@@ -407,24 +165,20 @@ func parseBinaryAdditive(p *parser) (expression, error) {
 		return nil, err
 	}
 
-	if p.accept(tokenPlus) {
-		fmt.Printf("plus\n")
-		right, err := parseBinaryAdditive(p)
-		return &binaryExpression{
-			op:    binaryPlus,
-			left:  left,
-			right: right,
-		}, err
+	var accepted = map[tokenKind]binaryOperator{
+		tokenPlus:  binaryPlus,
+		tokenMinus: binaryMinus,
 	}
 
-	if p.accept(tokenMinus) {
-		fmt.Printf("minus\n")
-		right, err := parseBinaryAdditive(p)
-		return &binaryExpression{
-			op:    binaryMinus,
-			left:  left,
-			right: right,
-		}, err
+	for kind, op := range accepted {
+		if p.accept(kind) {
+			right, err := parseBinaryAdditive(p)
+			return &binaryExpression{
+				op:    op,
+				left:  left,
+				right: right,
+			}, err
+		}
 	}
 
 	return left, nil
@@ -436,31 +190,24 @@ func parseBinaryComparative(p *parser) (expression, error) {
 		return nil, err
 	}
 
-	if p.accept(tokenEqual) {
-		right, err := parseBinaryComparative(p)
-		return &binaryExpression{
-			op:    binaryEqual,
-			left:  left,
-			right: right,
-		}, err
+	var accepted = map[tokenKind]binaryOperator{
+		tokenEqual:              binaryEqual,
+		tokenNotEqual:           binaryNotEqual,
+		tokenLessThan:           binaryLessThan,
+		tokenLessThanOrEqual:    binaryLessThanOrEqual,
+		tokenGreaterThan:        binaryGreaterThan,
+		tokenGreaterThanOrEqual: binaryGreaterThanOrEqual,
 	}
 
-	if p.accept(tokenLessThan) {
-		right, err := parseBinaryComparative(p)
-		return &binaryExpression{
-			op:    binaryLessThan,
-			left:  left,
-			right: right,
-		}, err
-	}
-
-	if p.accept(tokenGreaterThan) {
-		right, err := parseBinaryComparative(p)
-		return &binaryExpression{
-			op:    binaryGreaterThan,
-			left:  left,
-			right: right,
-		}, err
+	for kind, op := range accepted {
+		if p.accept(kind) {
+			right, err := parseBinaryComparative(p)
+			return &binaryExpression{
+				op:    op,
+				left:  left,
+				right: right,
+			}, err
+		}
 	}
 
 	return left, nil
@@ -513,6 +260,7 @@ func parse(tokens chan token) (expression, error) {
 		tok:    <-tokens,
 		tokens: tokens,
 	}
+
 	expr, err := parseExpression(p)
 	if err != nil {
 		return nil, err
@@ -526,8 +274,10 @@ func parse(tokens chan token) (expression, error) {
 		}
 		unparsedTokens = append(unparsedTokens, tok)
 	}
+
 	if len(unparsedTokens) > 0 {
-		return nil, fmt.Errorf("Remaining unparsed tokens: %v", unparsedTokens)
+		return nil, fmt.Errorf("Unparsed tokens: %v", unparsedTokens)
 	}
+
 	return expr, err
 }
