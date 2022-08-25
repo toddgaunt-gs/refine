@@ -128,7 +128,9 @@ func Check(val any) error {
 			}
 		}
 
-		result, err := eval(ev, expr)
+		//result, err := eval(ev, expr)
+		expr.Accept(ev)
+		result, err := ev.Result, ev.Err
 		if err != nil {
 			return checkErr{
 				structType: t.Name(),

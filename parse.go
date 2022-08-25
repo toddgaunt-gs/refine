@@ -5,8 +5,36 @@ import (
 	"fmt"
 )
 
+type Visitor interface {
+	VisitBinaryExpression(b *binaryExpression)
+	VisitUnaryExpression(u *unaryExpression)
+	VisitStringExpression(s *stringExpression)
+	VisitSymbolExpression(s *symbolExpression)
+	VisitIntegerExpression(i *integerExpression)
+}
+
 type expression interface {
 	Accept(v Visitor)
+}
+
+func (be *binaryExpression) Accept(v Visitor) {
+	v.VisitBinaryExpression(be)
+}
+
+func (ue *unaryExpression) Accept(v Visitor) {
+	v.VisitUnaryExpression(ue)
+}
+
+func (se *stringExpression) Accept(v Visitor) {
+	v.VisitStringExpression(se)
+}
+
+func (se *symbolExpression) Accept(v Visitor) {
+	v.VisitSymbolExpression(se)
+}
+
+func (ie *integerExpression) Accept(v Visitor) {
+	v.VisitIntegerExpression(ie)
 }
 
 type unaryOperator int

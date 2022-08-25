@@ -309,6 +309,8 @@ func evalUnaryDereference(expr Value) (Value, error) {
 
 type evaluator struct {
 	symbols map[string]Value
+	Result  Value
+	Err     error
 }
 
 func eval(e *evaluator, expr expression) (Value, error) {
@@ -379,12 +381,12 @@ func evalBinaryExpression(e *evaluator, b *binaryExpression) (Value, error) {
 		return Value{}, err
 	}
 
-	// Coerce nil constants.
+	// Coerce nil constants from the left.
 	if left.kind == boxUntypedNilConstant && (right.kind == boxSlice || right.kind == boxMap || right.kind == boxPointer) {
 		left.kind = right.kind
 	}
 
-	// Coerce nil constants.
+	// Coerce nil constants from the right.
 	if right.kind == boxUntypedNilConstant && (left.kind == boxSlice || left.kind == boxMap || left.kind == boxPointer) {
 		right.kind = left.kind
 	}
@@ -415,43 +417,93 @@ func evalBinaryExpression(e *evaluator, b *binaryExpression) (Value, error) {
 	panic(fmt.Sprintf("unknown binary operator: %d!", b.op))
 }
 
-type Visitor interface {
-	Visit(e expression)
+func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
+	var val, ok = e.symbols[se.text]
+	if !ok {
+		e.Result, e.Err = Value{}, fmt.Errorf("Couldn't find value for symbol %s", se.text)
+	} else {
+		e.Result, e.Err = val, nil
+	}
 }
 
-func (b *binaryExpression) Accept(v Visitor) {
-	v.Visit(b)
+func (e *evaluator) VisitStringExpression(se *stringExpression) {
+	e.Result, e.Err = Value{kind: boxString, val: se.text}, nil
 }
 
-func (u *unaryExpression) Accept(v Visitor) {
-	v.Visit(u)
-}
-
-func (s *stringExpression) Accept(v Visitor) {
-	v.Visit(s)
-}
-
-func (s *symbolExpression) Accept(v Visitor) {
-	v.Visit(s)
-}
-
-func (s *integerExpression) Accept(v Visitor) {
-	v.Visit(s)
-}
-
-func (e *evaluator) Visit(expr expression) {
-	switch t := expr.(type) {
-	case *stringExpression:
-		evalStringExpression(e, t)
-	case *symbolExpression:
-		evalSymbolExpression(e, t)
-	case *unaryExpression:
-		evalUnaryExpression(e, t)
-	case *binaryExpression:
-		evalBinaryExpression(e, t)
+func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
+	i, err := strconv.Atoi(ie.text)
+	if err != nil {
+		panic("couldn't convert integer token to integer value!")
 	}
 
-	panic("unknown expression type!")
+	e.Result, e.Err = Value{kind: boxInt, val: i}, nil
+}
+
+func (e *evaluator) VisitUnaryExpression(ue *unaryExpression) {
+	ue.expr.Accept(e)
+	if e.Err != nil {
+		return
+	}
+
+	switch ue.op {
+	case unaryMinus:
+		e.Result, e.Err = evalUnaryMinus(e.Result)
+	case unaryPlus:
+		e.Result, e.Err = evalUnaryPlus(e.Result)
+	case unaryNot:
+		e.Result, e.Err = evalUnaryNot(e.Result)
+	default:
+		panic(fmt.Sprintf("unknown unary operator: %d!", ue.op))
+	}
+}
+
+func (e *evaluator) VisitBinaryExpression(be *binaryExpression) {
+	be.left.Accept(e)
+	if e.Err != nil {
+		return
+	}
+	left := e.Result
+
+	be.right.Accept(e)
+	if e.Err != nil {
+		return
+	}
+	right := e.Result
+
+	// Coerce nil constants from the left.
+	if left.kind == boxUntypedNilConstant && (right.kind == boxSlice || right.kind == boxMap || right.kind == boxPointer) {
+		left.kind = right.kind
+	}
+
+	// Coerce nil constants from the right.
+	if right.kind == boxUntypedNilConstant && (left.kind == boxSlice || left.kind == boxMap || left.kind == boxPointer) {
+		right.kind = left.kind
+	}
+
+	switch be.op {
+	case binaryMultiply:
+		e.Result, e.Err = evalMultiply(left, right)
+	case binaryDivide:
+		e.Result, e.Err = evalDivide(left, right)
+	case binaryPlus:
+		e.Result, e.Err = evalAdd(left, right)
+	case binaryMinus:
+		e.Result, e.Err = evalSubtract(left, right)
+	case binaryEqual:
+		e.Result, e.Err = evalEqual(left, right)
+	case binaryNotEqual:
+		e.Result, e.Err = evalNotEqual(left, right)
+	case binaryLessThan:
+		e.Result, e.Err = evalLessThan(left, right)
+	case binaryLessThanOrEqual:
+		e.Result, e.Err = evalLessThanOrEqual(left, right)
+	case binaryGreaterThan:
+		e.Result, e.Err = evalGreaterThan(left, right)
+	case binaryGreaterThanOrEqual:
+		e.Result, e.Err = evalGreaterThanOrEqual(left, right)
+	default:
+		panic(fmt.Sprintf("unknown binary operator: %d!", be.op))
+	}
 }
 
 func newEvaluator() *evaluator {
