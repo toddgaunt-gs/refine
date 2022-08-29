@@ -13,6 +13,10 @@ const (
 	tokenError tokenKind = iota - 1
 	tokenEOF
 	// Syntax
+	tokenComma
+	tokenPeriod
+	tokenSemiColon
+	tokenQuestionMark
 	tokenLeftParen
 	tokenRightParen
 	// Operators
@@ -63,7 +67,8 @@ type lexer struct {
 
 type stateFunc func(l *lexer) stateFunc
 
-// next checks if the next rune is part of the valid set, but does not consume it.
+// next checks if the next rune is part of the valid set provided, but does not
+// consume it.
 func (l *lexer) next(valid string) bool {
 	if strings.ContainsRune(valid, l.get()) {
 		l.unget()
@@ -82,22 +87,27 @@ func (l *lexer) accept(valid string) bool {
 	return false
 }
 
+// acceptRun consumes runes from the valid set of runes provided until none in
+// the set are encountered.
 func (l *lexer) acceptRun(valid string) {
 	for strings.ContainsRune(valid, l.get()) {
 	}
 	l.unget()
 }
 
-// ignore skips over runes read so far.
+// ignore skips over runes read so far so they are not emitted.
 func (l *lexer) ignore() {
 	l.start = l.index
 }
 
+// unget moves the lexer back by one rune in the input. This can only be
+// performed once for every call to l.get()
 func (l *lexer) unget() {
 	l.index -= l.width
 	l.width = 0
 }
 
+// peek returns the next rune and consumes it from the input.
 func (l *lexer) get() rune {
 	if l.index >= len(l.input) {
 		l.width = 0
@@ -109,6 +119,7 @@ func (l *lexer) get() rune {
 	return r
 }
 
+// peek returns the next rune without consuming it from the input.
 func (l *lexer) peek() rune {
 	r := l.get()
 	l.unget()
@@ -298,6 +309,12 @@ func lexStart(l *lexer) stateFunc {
 		l.ignore()
 
 		switch {
+		case l.next(","):
+			l.accept(",")
+			l.emit(tokenComma)
+		case l.next(";"):
+			l.accept(";")
+			l.emit(tokenSemiColon)
 		case l.next("("):
 			l.accept("(")
 			l.emit(tokenLeftParen)

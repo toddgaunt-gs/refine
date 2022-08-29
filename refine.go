@@ -53,6 +53,48 @@ var kindMap = map[reflect.Kind]Kind{
 	reflect.Pointer: boxPointer,
 }
 
+func CheckPredicate(val any, predicate string) error {
+	t := func() reflect.Type {
+		t := reflect.TypeOf(val)
+		if t.Kind() == reflect.Pointer {
+			return t.Elem()
+		} else {
+			return t
+		}
+	}()
+
+	kind := t.Kind()
+
+	var ev = newEvaluator()
+	boxKind, ok := kindMap[kind]
+	if !ok {
+		return fmt.Errorf("refine.CheckPredicate: %w %s", ErrUnsupportedType, kind.String())
+	}
+	ev.symbols["?"] = Value{kind: boxKind, val: val}
+
+	tokens := lex(predicate, predicate)
+	expr, err := parse(tokens)
+	if err != nil {
+		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w", val, predicate, ErrParse)
+	}
+
+	expr.Accept(ev)
+	result, err := ev.Result, ev.Err
+	if err != nil {
+		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w: %v", val, predicate, ErrEval, err)
+	}
+
+	if result.kind != boxBool {
+		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w: %v", val, predicate, ErrEval, "not bool")
+	}
+
+	if result.val.(bool) != true {
+		return fmt.Errorf("refine.CheckPredicate: ? = %+#v ,%q %w", val, predicate, ErrNotMet)
+	}
+
+	return nil
+}
+
 func Check(val any) error {
 	t := func() reflect.Type {
 		t := reflect.TypeOf(val)
@@ -128,7 +170,6 @@ func Check(val any) error {
 			}
 		}
 
-		//result, err := eval(ev, expr)
 		expr.Accept(ev)
 		result, err := ev.Result, ev.Err
 		if err != nil {

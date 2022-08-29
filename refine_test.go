@@ -2,6 +2,7 @@ package refine
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -11,22 +12,52 @@ import (
 const text = "foo > bar"
 
 func TestLexer(t *testing.T) {
-	tokens := lex("test", text)
-	for {
-		select {
-		case tok := <-tokens:
-			if tok.kind == tokenEOF {
-				return
+	testCases := []struct {
+		predicate string
+		want      []token
+	}{
+		// Positive cases
+		{"0", []token{{tokenInteger, "0"}}},
+		{"-1", []token{{tokenMinus, "-"}, {tokenInteger, "1"}}},
+		{"`string`", []token{{tokenString, "`string`"}}},
+		{"symbol", []token{{tokenSymbol, "symbol"}}},
+		{"foo > bar", []token{{tokenSymbol, "foo"}, {tokenGreaterThan, ">"}, {tokenSymbol, "bar"}}},
+		// Negative cases
+		{`"string"`, []token{{tokenError, `unexpected rune '"'`}}},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.predicate, func(t *testing.T) {
+			tokens := lex(tc.predicate, tc.predicate)
+			for _, want := range tc.want {
+				got := <-tokens
+				if !reflect.DeepEqual(got, want) {
+					t.Fatalf("failed to lex %q: got token %v, want token %v", tc.predicate, got, want)
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestParser(t *testing.T) {
-	tokens := lex("test", text)
-	_, err := parse(tokens)
-	if err != nil {
-		t.Fatalf("failed to parse: %v", err)
+	testCases := []struct {
+		name string
+		expr string
+		want error
+	}{
+		{"greater than", "foo > bar", nil},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.expr, func(t *testing.T) {
+			tokens := lex(tc.name, tc.expr)
+			_, err := parse(tokens)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("failed to parse %q: %v", tc.expr, err)
+			}
+		})
 	}
 }
 
@@ -48,6 +79,10 @@ func TestCheck(t *testing.T) {
 		S string "refine:\"S == `foo`\""
 	}
 
+	type checkStruct struct {
+		C checkNil `refine:"C.A != nil"`
+	}
+
 	testCases := []struct {
 		name  string
 		value any
@@ -57,7 +92,8 @@ func TestCheck(t *testing.T) {
 		{
 			name:  "NotStructErr",
 			value: 2,
-			want:  ErrNotStruct,
+
+			want: ErrNotStruct,
 		},
 		{
 			name: "DependentFields",
@@ -111,6 +147,34 @@ func TestCheck(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			got := Check(tc.value)
+			if !errors.Is(got, tc.want) {
+				t.Fatalf("got %v; want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCheckPredicate(t *testing.T) {
+	testCases := []struct {
+		name      string
+		value     any
+		predicate string
+
+		want error
+	}{
+		{
+			name:      "not negative",
+			value:     2,
+			predicate: "? >= 0",
+
+			want: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			got := CheckPredicate(tc.value, tc.predicate)
 			if !errors.Is(got, tc.want) {
 				t.Fatalf("got %v; want %v", got, tc.want)
 			}

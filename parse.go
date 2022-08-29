@@ -11,6 +11,7 @@ type Visitor interface {
 	VisitIntegerExpression(i *integerExpression)
 	VisitStringExpression(s *stringExpression)
 	VisitSymbolExpression(s *symbolExpression)
+	VisitSelectorExpression(s *selectorExpression)
 	VisitUnaryExpression(u *unaryExpression)
 	VisitBinaryExpression(b *binaryExpression)
 }
@@ -36,6 +37,11 @@ func (se *symbolExpression) Accept(v Visitor) {
 	v.VisitSymbolExpression(se)
 }
 
+// Accepts calls a visitor on a selector expression.
+func (se *selectorExpression) Accept(v Visitor) {
+	v.VisitSelectorExpression(se)
+}
+
 // Accepts calls a visitor on a unary expression.
 func (ue *unaryExpression) Accept(v Visitor) {
 	v.VisitUnaryExpression(ue)
@@ -44,6 +50,24 @@ func (ue *unaryExpression) Accept(v Visitor) {
 // Accepts calls a visitor on a binary expression.
 func (be *binaryExpression) Accept(v Visitor) {
 	v.VisitBinaryExpression(be)
+}
+
+type integerExpression struct {
+	text string
+}
+
+type stringExpression struct {
+	text string
+}
+
+type symbolExpression struct {
+	kind Kind
+	text string
+}
+
+type selectorExpression struct {
+	sym       *symbolExpression
+	selection *symbolExpression
 }
 
 type unaryOperator int
@@ -86,19 +110,6 @@ type binaryExpression struct {
 	right expression
 }
 
-type stringExpression struct {
-	text string
-}
-
-type integerExpression struct {
-	text string
-}
-
-type symbolExpression struct {
-	kind Kind
-	text string
-}
-
 type parser struct {
 	// last is the token that was last accepted token within a parsing function.
 	last token
@@ -108,6 +119,8 @@ type parser struct {
 	tokens chan token
 }
 
+// accept looks for a kind of token waiting in channel. If the token in the
+// channel matches the kind provided, it is consumed from the channel.
 func (p *parser) accept(kind tokenKind) bool {
 	if p.tok.kind == kind {
 		p.last = p.tok
@@ -131,9 +144,22 @@ func parseAtom(p *parser) (expression, error) {
 	}
 
 	if p.accept(tokenSymbol) {
-		return &symbolExpression{
+		sym := &symbolExpression{
 			text: p.last.text,
-		}, nil
+		}
+		if p.accept(tokenPeriod) {
+			if p.accept(tokenSymbol) {
+				selection := &symbolExpression{
+					text: p.last.text,
+				}
+				return &selectorExpression{
+					sym:       sym,
+					selection: selection,
+				}, nil
+			}
+			return nil, errors.New("expected an identifier following selector")
+		}
+		return sym, nil
 	}
 
 	if p.accept(tokenString) {
@@ -290,6 +316,13 @@ func parseBinaryLogicalOr(p *parser) (expression, error) {
 // precedence level, working its way up the chain of functions according to
 // precedence of operations.
 func parseExpression(p *parser) (expression, error) {
+	/*
+		if p.accept(tokenQuestionMark) {
+			return &aliasExpression{
+				text.p.last.text,
+			}, nil
+		}
+	*/
 	return parseBinaryLogicalOr(p)
 }
 

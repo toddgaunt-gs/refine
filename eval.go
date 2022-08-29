@@ -360,6 +360,10 @@ func (e *evaluator) VisitStringExpression(se *stringExpression) {
 	e.Result, e.Err = Value{kind: boxString, val: se.text}, nil
 }
 
+func (e *evaluator) VisitSelectorExpression(se *selectorExpression) {
+	e.Result, e.Err = Value{}, errors.New("selectors are unimplemented!")
+}
+
 func (e *evaluator) VisitUnaryExpression(ue *unaryExpression) {
 	ue.expr.Accept(e)
 	if e.Err != nil {
