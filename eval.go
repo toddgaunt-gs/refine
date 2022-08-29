@@ -26,6 +26,37 @@ type Value struct {
 	val  any
 }
 
+type evaluator struct {
+	symbols map[string]Value
+	Result  Value
+	Err     error
+}
+
+func newEvaluator() *evaluator {
+	ev := &evaluator{
+		symbols: map[string]Value{},
+	}
+
+	// Populate constant values
+
+	ev.symbols["nil"] = Value{
+		kind: boxUntypedNilConstant,
+		val:  nil,
+	}
+
+	ev.symbols["true"] = Value{
+		kind: boxBool,
+		val:  true,
+	}
+
+	ev.symbols["false"] = Value{
+		kind: boxBool,
+		val:  false,
+	}
+
+	return ev
+}
+
 func evalMultiply(left, right Value) (Value, error) {
 	if left.kind != right.kind {
 		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
@@ -307,114 +338,13 @@ func evalUnaryDereference(expr Value) (Value, error) {
 	}
 }
 
-type evaluator struct {
-	symbols map[string]Value
-	Result  Value
-	Err     error
-}
-
-func eval(e *evaluator, expr expression) (Value, error) {
-	switch t := expr.(type) {
-	case *stringExpression:
-		return evalStringExpression(e, t)
-	case *symbolExpression:
-		return evalSymbolExpression(e, t)
-	case *integerExpression:
-		return evalIntegerExpression(e, t)
-	case *unaryExpression:
-		return evalUnaryExpression(e, t)
-	case *binaryExpression:
-		return evalBinaryExpression(e, t)
-	}
-
-	panic("unknown expression type!")
-}
-
-func evalStringExpression(e *evaluator, se *stringExpression) (Value, error) {
-	return Value{kind: boxString, val: se.text}, nil
-}
-
-func evalIntegerExpression(e *evaluator, ie *integerExpression) (Value, error) {
+func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
 	i, err := strconv.Atoi(ie.text)
 	if err != nil {
 		panic("couldn't convert integer token to integer value!")
 	}
 
-	return Value{kind: boxInt, val: i}, nil
-}
-
-func evalSymbolExpression(e *evaluator, se *symbolExpression) (Value, error) {
-	var val, ok = e.symbols[se.text]
-	if !ok {
-		return Value{}, fmt.Errorf("Couldn't find value for symbol %s", se.text)
-	}
-
-	return val, nil
-}
-
-func evalUnaryExpression(e *evaluator, u *unaryExpression) (Value, error) {
-	val, err := eval(e, u.expr)
-	if err != nil {
-		return Value{}, err
-	}
-
-	switch u.op {
-	case unaryMinus:
-		return evalUnaryMinus(val)
-	case unaryPlus:
-		return evalUnaryPlus(val)
-	case unaryNot:
-		return evalUnaryNot(val)
-	}
-
-	panic(fmt.Sprintf("unknown unary operator: %d!", u.op))
-}
-
-func evalBinaryExpression(e *evaluator, b *binaryExpression) (Value, error) {
-	left, err := eval(e, b.left)
-	if err != nil {
-		return Value{}, err
-	}
-
-	right, err := eval(e, b.right)
-	if err != nil {
-		return Value{}, err
-	}
-
-	// Coerce nil constants from the left.
-	if left.kind == boxUntypedNilConstant && (right.kind == boxSlice || right.kind == boxMap || right.kind == boxPointer) {
-		left.kind = right.kind
-	}
-
-	// Coerce nil constants from the right.
-	if right.kind == boxUntypedNilConstant && (left.kind == boxSlice || left.kind == boxMap || left.kind == boxPointer) {
-		right.kind = left.kind
-	}
-
-	switch b.op {
-	case binaryMultiply:
-		return evalMultiply(left, right)
-	case binaryDivide:
-		return evalDivide(left, right)
-	case binaryPlus:
-		return evalAdd(left, right)
-	case binaryMinus:
-		return evalSubtract(left, right)
-	case binaryEqual:
-		return evalEqual(left, right)
-	case binaryNotEqual:
-		return evalNotEqual(left, right)
-	case binaryLessThan:
-		return evalLessThan(left, right)
-	case binaryLessThanOrEqual:
-		return evalLessThanOrEqual(left, right)
-	case binaryGreaterThan:
-		return evalGreaterThan(left, right)
-	case binaryGreaterThanOrEqual:
-		return evalGreaterThanOrEqual(left, right)
-	}
-
-	panic(fmt.Sprintf("unknown binary operator: %d!", b.op))
+	e.Result, e.Err = Value{kind: boxInt, val: i}, nil
 }
 
 func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
@@ -428,15 +358,6 @@ func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
 
 func (e *evaluator) VisitStringExpression(se *stringExpression) {
 	e.Result, e.Err = Value{kind: boxString, val: se.text}, nil
-}
-
-func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
-	i, err := strconv.Atoi(ie.text)
-	if err != nil {
-		panic("couldn't convert integer token to integer value!")
-	}
-
-	e.Result, e.Err = Value{kind: boxInt, val: i}, nil
 }
 
 func (e *evaluator) VisitUnaryExpression(ue *unaryExpression) {
@@ -506,27 +427,8 @@ func (e *evaluator) VisitBinaryExpression(be *binaryExpression) {
 	}
 }
 
-func newEvaluator() *evaluator {
-	ev := &evaluator{
-		symbols: map[string]Value{},
-	}
-
-	// Populate constant values
-
-	ev.symbols["nil"] = Value{
-		kind: boxUntypedNilConstant,
-		val:  nil,
-	}
-
-	ev.symbols["true"] = Value{
-		kind: boxBool,
-		val:  true,
-	}
-
-	ev.symbols["false"] = Value{
-		kind: boxBool,
-		val:  false,
-	}
-
-	return ev
+// eval is a wrapper around passing the evaluator as a visitor to expr.
+func eval(e *evaluator, expr expression) (Value, error) {
+	expr.Accept(e)
+	return e.Result, e.Err
 }

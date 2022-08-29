@@ -5,36 +5,45 @@ import (
 	"fmt"
 )
 
+// Visitor is an interface for a visitor that is meant to traverse an Abstract
+// Syntax Tree (AST) for the refine package.
 type Visitor interface {
-	VisitBinaryExpression(b *binaryExpression)
-	VisitUnaryExpression(u *unaryExpression)
+	VisitIntegerExpression(i *integerExpression)
 	VisitStringExpression(s *stringExpression)
 	VisitSymbolExpression(s *symbolExpression)
-	VisitIntegerExpression(i *integerExpression)
+	VisitUnaryExpression(u *unaryExpression)
+	VisitBinaryExpression(b *binaryExpression)
 }
 
 type expression interface {
+	// Accept calls the appropriate method of a visitor for a given
+	// implementation of expression.
 	Accept(v Visitor)
 }
 
-func (be *binaryExpression) Accept(v Visitor) {
-	v.VisitBinaryExpression(be)
+// Accepts calls a visitor on an integer expression.
+func (ie *integerExpression) Accept(v Visitor) {
+	v.VisitIntegerExpression(ie)
 }
 
-func (ue *unaryExpression) Accept(v Visitor) {
-	v.VisitUnaryExpression(ue)
-}
-
+// Accepts calls a visitor on a string expression.
 func (se *stringExpression) Accept(v Visitor) {
 	v.VisitStringExpression(se)
 }
 
+// Accepts calls a visitor on a symbol expression.
 func (se *symbolExpression) Accept(v Visitor) {
 	v.VisitSymbolExpression(se)
 }
 
-func (ie *integerExpression) Accept(v Visitor) {
-	v.VisitIntegerExpression(ie)
+// Accepts calls a visitor on a unary expression.
+func (ue *unaryExpression) Accept(v Visitor) {
+	v.VisitUnaryExpression(ue)
+}
+
+// Accepts calls a visitor on a binary expression.
+func (be *binaryExpression) Accept(v Visitor) {
+	v.VisitBinaryExpression(be)
 }
 
 type unaryOperator int
@@ -278,7 +287,8 @@ func parseBinaryLogicalOr(p *parser) (expression, error) {
 }
 
 // parseExpression is the top-level parsing function starting at the lowest
-// precedence level, working its way up the chain of precedence functions.
+// precedence level, working its way up the chain of functions according to
+// precedence of operations.
 func parseExpression(p *parser) (expression, error) {
 	return parseBinaryLogicalOr(p)
 }
