@@ -13,10 +13,8 @@ const (
 	tokenError tokenKind = iota - 1
 	tokenEOF
 	// Syntax
-	tokenComma
 	tokenPeriod
-	tokenSemiColon
-	tokenQuestionMark
+	tokenComma
 	tokenLeftParen
 	tokenRightParen
 	// Operators
@@ -27,12 +25,10 @@ const (
 	tokenLessThanOrEqual
 	tokenGreaterThan
 	tokenGreaterThanOrEqual
-	tokenNot
+	tokenLogicalNot
 	tokenNotEqual
 	tokenMinus
-	tokenMinusMinus
 	tokenPlus
-	tokenPlusPlus
 	tokenAsterisk
 	tokenDivide
 	tokenBitwiseOr
@@ -143,7 +139,7 @@ func lexExclamation(l *lexer) stateFunc {
 		if l.accept("=") {
 			l.emit(tokenNotEqual)
 		} else {
-			l.emit(tokenNot)
+			l.emit(tokenLogicalNot)
 		}
 		return lexStart
 	} else {
@@ -223,22 +219,55 @@ func lexString(l *lexer) stateFunc {
 
 func lexNumber(l *lexer) stateFunc {
 	if l.accept("123456789") {
-		for l.accept("0123456789") {
-			// intentionally empty.
+		for {
+			l.accept("_")
+			if !l.accept("0123456789") {
+				break
+			}
 		}
 		l.unget()
 		l.emit(tokenInteger)
 		return lexStart
-	} else if l.accept("0") {
-		if l.next(delimiters) {
-			l.emit(tokenInteger)
-		} else {
-			panic("not implemented")
-		}
-		return lexStart
-	} else {
-		return l.errorf("expected an ASCII digit")
 	}
+
+	// Numbers prefixed with 0 might be octal, binary, hex, or just plain 0.
+	if l.accept("0") {
+		if l.accept("bB") {
+			for {
+				l.accept("_")
+				if !l.accept("01") {
+					break
+				}
+			}
+			l.unget()
+			l.emit(tokenInteger)
+			return lexStart
+		}
+		if l.accept("hH") {
+			for {
+				l.accept("_")
+				if !l.accept("0123456789abcdefABCDEF") {
+					break
+				}
+			}
+			l.unget()
+			l.emit(tokenInteger)
+			return lexStart
+		}
+		// For octal numbers, the o rune is optional.
+		l.accept("oO")
+		for {
+			l.accept("_")
+			if !l.accept("01234567") {
+				break
+			}
+		}
+		l.unget()
+		l.emit(tokenInteger)
+		return lexStart
+	}
+
+	return l.errorf("expected an ASCII digit")
 }
 
 func lexAmpersand(l *lexer) stateFunc {
@@ -267,41 +296,6 @@ func lexPipe(l *lexer) stateFunc {
 	}
 }
 
-func lexPlus(l *lexer) stateFunc {
-	if l.accept("+") {
-		if l.accept("++") {
-			l.emit(tokenPlusPlus)
-		} else {
-			l.emit(tokenPlus)
-		}
-		return lexStart
-	} else {
-		return l.errorf("expected '+'")
-	}
-}
-
-func lexMinus(l *lexer) stateFunc {
-	if l.accept("-") {
-		if l.accept("--") {
-			l.emit(tokenMinusMinus)
-		} else {
-			l.emit(tokenMinus)
-		}
-		return lexStart
-	} else {
-		return l.errorf("expected '-'")
-	}
-}
-
-func lexAsterisk(l *lexer) stateFunc {
-	if l.accept("*") {
-		l.emit(tokenAsterisk)
-		return lexStart
-	} else {
-		return l.errorf("expected '*'")
-	}
-}
-
 func lexStart(l *lexer) stateFunc {
 	for {
 		// Skip leading whitespace.
@@ -309,12 +303,14 @@ func lexStart(l *lexer) stateFunc {
 		l.ignore()
 
 		switch {
+		case l.next("."):
+			l.accept(".")
+			l.emit(tokenPeriod)
+			return lexStart
 		case l.next(","):
 			l.accept(",")
 			l.emit(tokenComma)
-		case l.next(";"):
-			l.accept(";")
-			l.emit(tokenSemiColon)
+			return lexStart
 		case l.next("("):
 			l.accept("(")
 			l.emit(tokenLeftParen)
@@ -335,12 +331,22 @@ func lexStart(l *lexer) stateFunc {
 			return lexAmpersand
 		case l.next("|"):
 			return lexPipe
-		case l.next("+"):
-			return lexPlus
 		case l.next("*"):
-			return lexAsterisk
+			l.accept("*")
+			l.emit(tokenAsterisk)
+			return lexStart
+		case l.next("/"):
+			l.accept("/")
+			l.emit(tokenDivide)
+			return lexStart
+		case l.next("+"):
+			l.accept("+")
+			l.emit(tokenPlus)
+			return lexStart
 		case l.next("-"):
-			return lexMinus
+			l.accept("-")
+			l.emit(tokenMinus)
+			return lexStart
 		case l.next("`"):
 			return lexString
 		case l.next("0123456789"):
