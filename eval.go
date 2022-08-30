@@ -140,6 +140,38 @@ func evalSubtract(left, right box) (box, error) {
 	return box{kind: left.kind, val: v}, nil
 }
 
+func evalLeftShift(left, right box) (box, error) {
+	if left.kind != right.kind {
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+	}
+
+	var v any
+	switch left.kind {
+	case boxInt:
+		v = left.val.(int) << right.val.(int)
+	default:
+		return box{}, errors.New("invalid type!")
+	}
+
+	return box{kind: left.kind, val: v}, nil
+}
+
+func evalRightShift(left, right box) (box, error) {
+	if left.kind != right.kind {
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+	}
+
+	var v any
+	switch left.kind {
+	case boxInt:
+		v = left.val.(int) >> right.val.(int)
+	default:
+		return box{}, errors.New("invalid type!")
+	}
+
+	return box{kind: left.kind, val: v}, nil
+}
+
 func evalEqual(left, right box) (box, error) {
 	if left.kind != right.kind {
 		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
@@ -342,16 +374,16 @@ func evalUnaryDereference(expr box) (box, error) {
 func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
 	i, err := strconv.Atoi(ie.text)
 	if err != nil {
-		panic("couldn't convert integer token to integer value!")
+		e.Result, e.Err = box{}, fmt.Errorf("refine.eval: couldn't convert integer token %s to integer value!", ie.text)
+	} else {
+		e.Result, e.Err = box{kind: boxInt, val: i}, nil
 	}
-
-	e.Result, e.Err = box{kind: boxInt, val: i}, nil
 }
 
 func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
 	var val, ok = e.symbols[se.text]
 	if !ok {
-		e.Result, e.Err = box{}, fmt.Errorf("Couldn't find value for symbol %s", se.text)
+		e.Result, e.Err = box{}, fmt.Errorf("refine.eval: couldn't find value for symbol %s", se.text)
 	} else {
 		e.Result, e.Err = val, nil
 	}
@@ -379,7 +411,7 @@ func (e *evaluator) VisitUnaryExpression(ue *unaryExpression) {
 	case unaryNot:
 		e.Result, e.Err = evalUnaryNot(e.Result)
 	default:
-		panic(fmt.Sprintf("unknown unary operator: %d!", ue.op))
+		e.Result, e.Err = box{}, fmt.Errorf("refine.eval: unknown unary operator: %d!", ue.op)
 	}
 }
 
@@ -415,6 +447,10 @@ func (e *evaluator) VisitBinaryExpression(be *binaryExpression) {
 		e.Result, e.Err = evalAdd(left, right)
 	case binaryMinus:
 		e.Result, e.Err = evalSubtract(left, right)
+	case binaryLeftShift:
+		e.Result, e.Err = evalLeftShift(left, right)
+	case binaryRightShift:
+		e.Result, e.Err = evalRightShift(left, right)
 	case binaryEqual:
 		e.Result, e.Err = evalEqual(left, right)
 	case binaryNotEqual:
@@ -428,7 +464,7 @@ func (e *evaluator) VisitBinaryExpression(be *binaryExpression) {
 	case binaryGreaterThanOrEqual:
 		e.Result, e.Err = evalGreaterThanOrEqual(left, right)
 	default:
-		panic(fmt.Sprintf("unknown binary operator: %d!", be.op))
+		e.Result, e.Err = box{}, fmt.Errorf("refine.eval: unknown binary operator: %d!", be.op)
 	}
 }
 

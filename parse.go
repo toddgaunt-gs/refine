@@ -92,6 +92,9 @@ const (
 	binaryMinus
 	binaryPlus
 
+	binaryLeftShift
+	binaryRightShift
+
 	binaryEqual
 	binaryNotEqual
 	binaryLessThan
@@ -228,8 +231,10 @@ func parseBinaryAdditive(p *parser) (expression, error) {
 	}
 
 	var accepted = map[tokenKind]binaryOperator{
-		tokenPlus:  binaryPlus,
-		tokenMinus: binaryMinus,
+		tokenPlus:       binaryPlus,
+		tokenMinus:      binaryMinus,
+		tokenLeftShift:  binaryLeftShift,
+		tokenRightShift: binaryRightShift,
 	}
 
 	for kind, op := range accepted {

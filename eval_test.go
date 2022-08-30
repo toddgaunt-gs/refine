@@ -14,7 +14,7 @@ func TestEval(t *testing.T) {
 				text: "11",
 			},
 			right: &integerExpression{
-				text: "7",
+				text: "2",
 			},
 		}
 	}
@@ -33,7 +33,7 @@ func TestEval(t *testing.T) {
 			wantErr: nil,
 			wantVal: box{
 				kind: boxInt,
-				val:  18,
+				val:  13,
 			},
 		},
 		{
@@ -43,7 +43,7 @@ func TestEval(t *testing.T) {
 			wantErr: nil,
 			wantVal: box{
 				kind: boxInt,
-				val:  4,
+				val:  9,
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestEval(t *testing.T) {
 			wantErr: nil,
 			wantVal: box{
 				kind: boxInt,
-				val:  77,
+				val:  22,
 			},
 		},
 		{
@@ -63,7 +63,27 @@ func TestEval(t *testing.T) {
 			wantErr: nil,
 			wantVal: box{
 				kind: boxInt,
-				val:  1,
+				val:  5,
+			},
+		},
+		{
+			name: "binaryLeftShift",
+			expr: binaryExpr(binaryLeftShift),
+
+			wantErr: nil,
+			wantVal: box{
+				kind: boxInt,
+				val:  44,
+			},
+		},
+		{
+			name: "binaryRightShift",
+			expr: binaryExpr(binaryRightShift),
+
+			wantErr: nil,
+			wantVal: box{
+				kind: boxInt,
+				val:  2,
 			},
 		},
 	}
