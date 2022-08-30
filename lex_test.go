@@ -1,6 +1,7 @@
 package refine
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -43,4 +44,51 @@ func TestLexer(t *testing.T) {
 			}
 		})
 	}
+}
+
+func FuzzLexerIntegers(f *testing.F) {
+	testCases := []int{
+		-1,
+		0,
+		1,
+	}
+
+	for _, tc := range testCases {
+		f.Add(tc)
+	}
+
+	f.Fuzz(func(t *testing.T, i int) {
+		predicate := fmt.Sprintf("%d", i)
+		tokens := lex(predicate, predicate)
+		if i >= 0 {
+			// Verify that a number is produced
+			tok := <-tokens
+			if tok.kind != tokenInteger {
+				t.Fatalf("got token %+#v, wanted an integer token", tok)
+			}
+			if got, want := tok.text, fmt.Sprintf("%d", i); got != want {
+				t.Fatalf("got token text %s, want %s", got, want)
+			}
+		} else {
+			// Verify that a minus sign is produced for negative numbers
+			tok := <-tokens
+			if tok.kind != tokenMinus {
+				t.Fatalf("got token %+#v, wanted an minus token", tok)
+			}
+			if got, want := tok.text, "-"; got != want {
+				t.Fatalf("got token text %s, want %s", got, want)
+			}
+			tok = <-tokens
+			if tok.kind != tokenInteger {
+				t.Fatalf("got token %+#v, wanted an integer token", tok)
+			}
+			if got, want := tok.text, fmt.Sprintf("%d", -i); got != want {
+				t.Fatalf("got token text %s, want %s", got, want)
+			}
+		}
+		tok := <-tokens
+		if tok.kind != tokenEOF {
+			t.Fatalf("got token %+#v, wanted EOF token", tok)
+		}
+	})
 }
