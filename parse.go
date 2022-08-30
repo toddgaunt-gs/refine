@@ -315,13 +315,6 @@ func parseBinaryLogicalOr(p *parser) (expression, error) {
 // precedence level, working its way up the chain of functions according to
 // precedence of operations.
 func parseExpression(p *parser) (expression, error) {
-	/*
-		if p.accept(tokenQuestionMark) {
-			return &aliasExpression{
-				text.p.last.text,
-			}, nil
-		}
-	*/
 	return parseBinaryLogicalOr(p)
 }
 
@@ -339,9 +332,6 @@ func parse(tokens chan token) (expression, error) {
 	// Create a list of any unparsed tokens as an error
 	var unparsedTokens []token
 	for tok := p.tok; tok.kind != tokenEOF; tok = <-tokens {
-		if tok.kind == tokenEOF {
-			break
-		}
 		unparsedTokens = append(unparsedTokens, tok)
 	}
 

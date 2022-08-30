@@ -5,27 +5,6 @@ import (
 	"testing"
 )
 
-func TestParser(t *testing.T) {
-	testCases := []struct {
-		name string
-		expr string
-		want error
-	}{
-		{"greater than", "foo > bar", nil},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.expr, func(t *testing.T) {
-			tokens := lex(tc.name, tc.expr)
-			_, err := parse(tokens)
-			if !errors.Is(err, tc.want) {
-				t.Fatalf("failed to parse %q: %v", tc.expr, err)
-			}
-		})
-	}
-}
-
 func TestCheck(t *testing.T) {
 	type checkDependent struct {
 		A int `refine:"A > B"`
