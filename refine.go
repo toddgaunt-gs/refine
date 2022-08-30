@@ -6,13 +6,11 @@ import (
 	"reflect"
 )
 
-var (
-	ErrNotStruct       = errors.New("only struct types can be checked")
-	ErrUnsupportedType = errors.New("unsupported type")
-	ErrNotMet          = errors.New("not met")
-	ErrParse           = errors.New("could not be parsed")
-	ErrEval            = errors.New("could not be evaluated")
-)
+var ErrNotStruct = errors.New("only struct types can be checked")
+var ErrUnsupportedType = errors.New("unsupported type")
+var ErrNotMet = errors.New("not met")
+var ErrParse = errors.New("could not be parsed")
+var ErrEval = errors.New("could not be evaluated")
 
 type checkErr struct {
 	structType string
@@ -35,7 +33,7 @@ func (e checkErr) Unwrap() error {
 
 const tag = "refine"
 
-var kindMap = map[reflect.Kind]Kind{
+var kindMap = map[reflect.Kind]kind{
 	reflect.String:  boxString,
 	reflect.Bool:    boxBool,
 	reflect.Int:     boxInt,
@@ -51,48 +49,7 @@ var kindMap = map[reflect.Kind]Kind{
 	reflect.Slice:   boxSlice,
 	reflect.Map:     boxMap,
 	reflect.Pointer: boxPointer,
-}
-
-func CheckPredicate(val any, predicate string) error {
-	t := func() reflect.Type {
-		t := reflect.TypeOf(val)
-		if t.Kind() == reflect.Pointer {
-			return t.Elem()
-		} else {
-			return t
-		}
-	}()
-
-	kind := t.Kind()
-
-	var ev = newEvaluator()
-	boxKind, ok := kindMap[kind]
-	if !ok {
-		return fmt.Errorf("refine.CheckPredicate: %w %s", ErrUnsupportedType, kind.String())
-	}
-	ev.symbols["?"] = Value{kind: boxKind, val: val}
-
-	tokens := lex(predicate, predicate)
-	expr, err := parse(tokens)
-	if err != nil {
-		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w", val, predicate, ErrParse)
-	}
-
-	expr.Accept(ev)
-	result, err := ev.Result, ev.Err
-	if err != nil {
-		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w: %v", val, predicate, ErrEval, err)
-	}
-
-	if result.kind != boxBool {
-		return fmt.Errorf("refine.CheckPredicate: ? = %+#v, %q %w: %v", val, predicate, ErrEval, "not bool")
-	}
-
-	if result.val.(bool) != true {
-		return fmt.Errorf("refine.CheckPredicate: ? = %+#v ,%q %w", val, predicate, ErrNotMet)
-	}
-
-	return nil
+	reflect.Struct:  boxStruct,
 }
 
 func Check(val any) error {
@@ -135,18 +92,18 @@ func Check(val any) error {
 
 		if kind == reflect.Pointer {
 			if value.IsNil() {
-				ev.symbols[field.Name] = Value{
+				ev.symbols[field.Name] = box{
 					kind: boxPointer,
 					val:  nil,
 				}
 			} else {
-				ev.symbols[field.Name] = Value{
+				ev.symbols[field.Name] = box{
 					kind: boxKind,
 					val:  value.Interface(),
 				}
 			}
 		} else {
-			ev.symbols[field.Name] = Value{
+			ev.symbols[field.Name] = box{
 				kind: boxKind,
 				val:  value.Interface(),
 			}

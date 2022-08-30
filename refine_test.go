@@ -2,43 +2,8 @@ package refine
 
 import (
 	"errors"
-	"reflect"
 	"testing"
 )
-
-//const text = "2 < 30 && 1 > 5"
-//const text = "(2 < 5) == (2 < 1)"
-//const text = "2 + 5 + -1 * -2"
-const text = "foo > bar"
-
-func TestLexer(t *testing.T) {
-	testCases := []struct {
-		predicate string
-		want      []token
-	}{
-		// Positive cases
-		{"0", []token{{tokenInteger, "0"}}},
-		{"-1", []token{{tokenMinus, "-"}, {tokenInteger, "1"}}},
-		{"`string`", []token{{tokenString, "`string`"}}},
-		{"symbol", []token{{tokenSymbol, "symbol"}}},
-		{"foo > bar", []token{{tokenSymbol, "foo"}, {tokenGreaterThan, ">"}, {tokenSymbol, "bar"}}},
-		// Negative cases
-		{`"string"`, []token{{tokenError, `unexpected rune '"'`}}},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.predicate, func(t *testing.T) {
-			tokens := lex(tc.predicate, tc.predicate)
-			for _, want := range tc.want {
-				got := <-tokens
-				if !reflect.DeepEqual(got, want) {
-					t.Fatalf("failed to lex %q: got token %v, want token %v", tc.predicate, got, want)
-				}
-			}
-		})
-	}
-}
 
 func TestParser(t *testing.T) {
 	testCases := []struct {
@@ -79,8 +44,10 @@ func TestCheck(t *testing.T) {
 		S string "refine:\"S == `foo`\""
 	}
 
-	type checkStruct struct {
-		C checkNil `refine:"C.A != nil"`
+	type checkNestedStruct struct {
+		C struct {
+			A *int
+		} `refine:"C.A == nil"`
 	}
 
 	testCases := []struct {
@@ -141,40 +108,20 @@ func TestCheck(t *testing.T) {
 
 			want: ErrNotMet,
 		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			got := Check(tc.value)
-			if !errors.Is(got, tc.want) {
-				t.Fatalf("got %v; want %v", got, tc.want)
-			}
-		})
-	}
-}
-
-func TestCheckPredicate(t *testing.T) {
-	testCases := []struct {
-		name      string
-		value     any
-		predicate string
-
-		want error
-	}{
 		{
-			name:      "not negative",
-			value:     2,
-			predicate: "? >= 0",
+			name: "CheckNestedStruct",
+			value: checkNestedStruct{
+				C: struct{ A *int }{A: nil},
+			},
 
-			want: nil,
+			want: ErrEval,
 		},
 	}
 
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			got := CheckPredicate(tc.value, tc.predicate)
+			got := Check(tc.value)
 			if !errors.Is(got, tc.want) {
 				t.Fatalf("got %v; want %v", got, tc.want)
 			}

@@ -24,14 +24,14 @@ func TestEval(t *testing.T) {
 		expr expression
 
 		wantErr error
-		wantVal Value
+		wantVal box
 	}{
 		{
 			name: "binaryPlus",
 			expr: binaryExpr(binaryPlus),
 
 			wantErr: nil,
-			wantVal: Value{
+			wantVal: box{
 				kind: boxInt,
 				val:  18,
 			},
@@ -41,7 +41,7 @@ func TestEval(t *testing.T) {
 			expr: binaryExpr(binaryMinus),
 
 			wantErr: nil,
-			wantVal: Value{
+			wantVal: box{
 				kind: boxInt,
 				val:  4,
 			},
@@ -51,7 +51,7 @@ func TestEval(t *testing.T) {
 			expr: binaryExpr(binaryMultiply),
 
 			wantErr: nil,
-			wantVal: Value{
+			wantVal: box{
 				kind: boxInt,
 				val:  77,
 			},
@@ -61,7 +61,7 @@ func TestEval(t *testing.T) {
 			expr: binaryExpr(binaryDivide),
 
 			wantErr: nil,
-			wantVal: Value{
+			wantVal: box{
 				kind: boxInt,
 				val:  1,
 			},

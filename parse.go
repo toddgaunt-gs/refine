@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-// Visitor is an interface for a visitor that is meant to traverse an Abstract
+// visitor is an interface for a visitor that is meant to traverse an Abstract
 // Syntax Tree (AST) for the refine package.
-type Visitor interface {
+type visitor interface {
 	VisitIntegerExpression(i *integerExpression)
 	VisitStringExpression(s *stringExpression)
 	VisitSymbolExpression(s *symbolExpression)
@@ -19,36 +19,36 @@ type Visitor interface {
 type expression interface {
 	// Accept calls the appropriate method of a visitor for a given
 	// implementation of expression.
-	Accept(v Visitor)
+	Accept(v visitor)
 }
 
 // Accepts calls a visitor on an integer expression.
-func (ie *integerExpression) Accept(v Visitor) {
+func (ie *integerExpression) Accept(v visitor) {
 	v.VisitIntegerExpression(ie)
 }
 
 // Accepts calls a visitor on a string expression.
-func (se *stringExpression) Accept(v Visitor) {
+func (se *stringExpression) Accept(v visitor) {
 	v.VisitStringExpression(se)
 }
 
 // Accepts calls a visitor on a symbol expression.
-func (se *symbolExpression) Accept(v Visitor) {
+func (se *symbolExpression) Accept(v visitor) {
 	v.VisitSymbolExpression(se)
 }
 
 // Accepts calls a visitor on a selector expression.
-func (se *selectorExpression) Accept(v Visitor) {
+func (se *selectorExpression) Accept(v visitor) {
 	v.VisitSelectorExpression(se)
 }
 
 // Accepts calls a visitor on a unary expression.
-func (ue *unaryExpression) Accept(v Visitor) {
+func (ue *unaryExpression) Accept(v visitor) {
 	v.VisitUnaryExpression(ue)
 }
 
 // Accepts calls a visitor on a binary expression.
-func (be *binaryExpression) Accept(v Visitor) {
+func (be *binaryExpression) Accept(v visitor) {
 	v.VisitBinaryExpression(be)
 }
 
@@ -61,7 +61,6 @@ type stringExpression struct {
 }
 
 type symbolExpression struct {
-	kind Kind
 	text string
 }
 
@@ -179,9 +178,9 @@ func parseAtom(p *parser) (expression, error) {
 
 func parseUnary(p *parser) (expression, error) {
 	var accepted = map[tokenKind]unaryOperator{
-		tokenPlus:  unaryPlus,
-		tokenMinus: unaryMinus,
-		tokenNot:   unaryNot,
+		tokenPlus:       unaryPlus,
+		tokenMinus:      unaryMinus,
+		tokenLogicalNot: unaryNot,
 	}
 
 	for kind, op := range accepted {

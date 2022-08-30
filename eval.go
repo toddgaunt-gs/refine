@@ -6,10 +6,10 @@ import (
 	"strconv"
 )
 
-type Kind int
+type kind int
 
 const (
-	boxUntypedNilConstant Kind = iota
+	boxUntypedNilConstant kind = iota
 	boxBool
 	boxInt
 	boxUint
@@ -19,37 +19,38 @@ const (
 	boxSlice
 	boxMap
 	boxPointer
+	boxStruct
 )
 
-type Value struct {
-	kind Kind
+type box struct {
+	kind kind
 	val  any
 }
 
 type evaluator struct {
-	symbols map[string]Value
-	Result  Value
+	symbols map[string]box
+	Result  box
 	Err     error
 }
 
 func newEvaluator() *evaluator {
 	ev := &evaluator{
-		symbols: map[string]Value{},
+		symbols: map[string]box{},
 	}
 
 	// Populate constant values
 
-	ev.symbols["nil"] = Value{
+	ev.symbols["nil"] = box{
 		kind: boxUntypedNilConstant,
 		val:  nil,
 	}
 
-	ev.symbols["true"] = Value{
+	ev.symbols["true"] = box{
 		kind: boxBool,
 		val:  true,
 	}
 
-	ev.symbols["false"] = Value{
+	ev.symbols["false"] = box{
 		kind: boxBool,
 		val:  false,
 	}
@@ -57,9 +58,9 @@ func newEvaluator() *evaluator {
 	return ev
 }
 
-func evalMultiply(left, right Value) (Value, error) {
+func evalMultiply(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v any
@@ -71,15 +72,15 @@ func evalMultiply(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) * right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: left.kind, val: v}, nil
+	return box{kind: left.kind, val: v}, nil
 }
 
-func evalDivide(left, right Value) (Value, error) {
+func evalDivide(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v any
@@ -91,15 +92,15 @@ func evalDivide(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) / right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: left.kind, val: v}, nil
+	return box{kind: left.kind, val: v}, nil
 }
 
-func evalAdd(left, right Value) (Value, error) {
+func evalAdd(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v any
@@ -113,15 +114,15 @@ func evalAdd(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) + right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: left.kind, val: v}, nil
+	return box{kind: left.kind, val: v}, nil
 }
 
-func evalSubtract(left, right Value) (Value, error) {
+func evalSubtract(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v any
@@ -133,15 +134,15 @@ func evalSubtract(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) - right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: left.kind, val: v}, nil
+	return box{kind: left.kind, val: v}, nil
 }
 
-func evalEqual(left, right Value) (Value, error) {
+func evalEqual(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -159,18 +160,18 @@ func evalEqual(left, right Value) (Value, error) {
 	case boxPointer:
 		v = left.val == right.val
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{
+	return box{
 		kind: boxBool,
 		val:  v,
 	}, nil
 }
 
-func evalNotEqual(left, right Value) (Value, error) {
+func evalNotEqual(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -188,18 +189,18 @@ func evalNotEqual(left, right Value) (Value, error) {
 	case boxPointer:
 		v = left.val != right.val
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{
+	return box{
 		kind: boxBool,
 		val:  v,
 	}, nil
 }
 
-func evalLessThan(left, right Value) (Value, error) {
+func evalLessThan(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -213,15 +214,15 @@ func evalLessThan(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) < right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: boxBool, val: v}, nil
+	return box{kind: boxBool, val: v}, nil
 }
 
-func evalLessThanOrEqual(left, right Value) (Value, error) {
+func evalLessThanOrEqual(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -235,15 +236,15 @@ func evalLessThanOrEqual(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) <= right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: boxBool, val: v}, nil
+	return box{kind: boxBool, val: v}, nil
 }
 
-func evalGreaterThan(left, right Value) (Value, error) {
+func evalGreaterThan(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -257,15 +258,15 @@ func evalGreaterThan(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) > right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: boxBool, val: v}, nil
+	return box{kind: boxBool, val: v}, nil
 }
 
-func evalGreaterThanOrEqual(left, right Value) (Value, error) {
+func evalGreaterThanOrEqual(left, right box) (box, error) {
 	if left.kind != right.kind {
-		return Value{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
+		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
 
 	var v bool
@@ -279,25 +280,25 @@ func evalGreaterThanOrEqual(left, right Value) (Value, error) {
 	case boxFloat64:
 		v = left.val.(float64) >= right.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: boxBool, val: v}, nil
+	return box{kind: boxBool, val: v}, nil
 }
 
-func evalUnaryNot(val Value) (Value, error) {
+func evalUnaryNot(val box) (box, error) {
 	var v any
 	switch val.kind {
 	case boxBool:
 		v = !val.val.(bool)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: val.kind, val: v}, nil
+	return box{kind: val.kind, val: v}, nil
 }
 
-func evalUnaryMinus(val Value) (Value, error) {
+func evalUnaryMinus(val box) (box, error) {
 	var v any
 	switch val.kind {
 	case boxInt:
@@ -307,13 +308,13 @@ func evalUnaryMinus(val Value) (Value, error) {
 	case boxFloat64:
 		v = -val.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: val.kind, val: v}, nil
+	return box{kind: val.kind, val: v}, nil
 }
 
-func evalUnaryPlus(val Value) (Value, error) {
+func evalUnaryPlus(val box) (box, error) {
 	var v any
 	switch val.kind {
 	case boxInt:
@@ -323,18 +324,18 @@ func evalUnaryPlus(val Value) (Value, error) {
 	case boxFloat64:
 		v = +val.val.(float64)
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 
-	return Value{kind: val.kind, val: v}, nil
+	return box{kind: val.kind, val: v}, nil
 }
 
-func evalUnaryDereference(expr Value) (Value, error) {
+func evalUnaryDereference(expr box) (box, error) {
 	switch expr.kind {
 	case boxPointer:
-		return expr.val.(Value), nil
+		return expr.val.(box), nil
 	default:
-		return Value{}, errors.New("invalid type!")
+		return box{}, errors.New("invalid type!")
 	}
 }
 
@@ -344,24 +345,24 @@ func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
 		panic("couldn't convert integer token to integer value!")
 	}
 
-	e.Result, e.Err = Value{kind: boxInt, val: i}, nil
+	e.Result, e.Err = box{kind: boxInt, val: i}, nil
 }
 
 func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
 	var val, ok = e.symbols[se.text]
 	if !ok {
-		e.Result, e.Err = Value{}, fmt.Errorf("Couldn't find value for symbol %s", se.text)
+		e.Result, e.Err = box{}, fmt.Errorf("Couldn't find value for symbol %s", se.text)
 	} else {
 		e.Result, e.Err = val, nil
 	}
 }
 
 func (e *evaluator) VisitStringExpression(se *stringExpression) {
-	e.Result, e.Err = Value{kind: boxString, val: se.text}, nil
+	e.Result, e.Err = box{kind: boxString, val: se.text}, nil
 }
 
 func (e *evaluator) VisitSelectorExpression(se *selectorExpression) {
-	e.Result, e.Err = Value{}, errors.New("selectors are unimplemented!")
+	e.Result, e.Err = box{}, errors.New("selectors are unimplemented!")
 }
 
 func (e *evaluator) VisitUnaryExpression(ue *unaryExpression) {
@@ -432,7 +433,7 @@ func (e *evaluator) VisitBinaryExpression(be *binaryExpression) {
 }
 
 // eval is a wrapper around passing the evaluator as a visitor to expr.
-func eval(e *evaluator, expr expression) (Value, error) {
+func eval(e *evaluator, expr expression) (box, error) {
 	expr.Accept(e)
 	return e.Result, e.Err
 }
