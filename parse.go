@@ -1,13 +1,18 @@
+//go:generate stringer -type=binaryOperator
+//go:generate stringer -type=unaryOperator
+
 package refine
 
 import (
 	"errors"
 	"fmt"
+	"strconv"
 )
 
 // visitor is an interface for a visitor that is meant to traverse an Abstract
 // Syntax Tree (AST) for the refine package.
 type visitor interface {
+	VisitBooleanExpression(b *booleanExpression)
 	VisitIntegerExpression(i *integerExpression)
 	VisitStringExpression(s *stringExpression)
 	VisitSymbolExpression(s *symbolExpression)
@@ -20,6 +25,11 @@ type expression interface {
 	// Accept calls the appropriate method of a visitor for a given
 	// implementation of expression.
 	Accept(v visitor)
+}
+
+// Accepts calls a visitor on a boolean expression.
+func (be *booleanExpression) Accept(v visitor) {
+	v.VisitBooleanExpression(be)
 }
 
 // Accepts calls a visitor on an integer expression.
@@ -52,8 +62,14 @@ func (be *binaryExpression) Accept(v visitor) {
 	v.VisitBinaryExpression(be)
 }
 
+type booleanExpression struct {
+	text  string
+	value bool
+}
+
 type integerExpression struct {
-	text string
+	text  string
+	value int
 }
 
 type stringExpression struct {
@@ -146,22 +162,35 @@ func parseAtom(p *parser) (expression, error) {
 	}
 
 	if p.accept(tokenSymbol) {
-		sym := &symbolExpression{
-			text: p.last.text,
-		}
-		if p.accept(tokenPeriod) {
-			if p.accept(tokenSymbol) {
-				selection := &symbolExpression{
-					text: p.last.text,
-				}
-				return &selectorExpression{
-					sym:       sym,
-					selection: selection,
-				}, nil
+		switch p.last.text {
+		case "true":
+			return &booleanExpression{
+				text:  p.last.text,
+				value: true,
+			}, nil
+		case "false":
+			return &booleanExpression{
+				text:  p.last.text,
+				value: false,
+			}, nil
+		default:
+			sym := &symbolExpression{
+				text: p.last.text,
 			}
-			return nil, errors.New("expected an identifier following selector")
+			if p.accept(tokenPeriod) {
+				if p.accept(tokenSymbol) {
+					selection := &symbolExpression{
+						text: p.last.text,
+					}
+					return &selectorExpression{
+						sym:       sym,
+						selection: selection,
+					}, nil
+				}
+				return nil, errors.New("expected an identifier following selector")
+			}
+			return sym, nil
 		}
-		return sym, nil
 	}
 
 	if p.accept(tokenString) {
@@ -171,8 +200,13 @@ func parseAtom(p *parser) (expression, error) {
 	}
 
 	if p.accept(tokenInteger) {
+		value, err := strconv.ParseInt(p.last.text, 0, 0)
+		if err != nil {
+			return nil, err
+		}
 		return &integerExpression{
-			text: p.last.text,
+			text:  p.last.text,
+			value: int(value),
 		}, nil
 	}
 

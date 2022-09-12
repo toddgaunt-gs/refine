@@ -18,8 +18,8 @@ func TestParser(t *testing.T) {
 			tokens: []token{{tokenInteger, "1"}, {tokenPlus, "+"}, {tokenInteger, "2"}},
 			want: &binaryExpression{
 				op:    binaryPlus,
-				left:  &integerExpression{text: "1"},
-				right: &integerExpression{text: "2"},
+				left:  &integerExpression{text: "1", value: 1},
+				right: &integerExpression{text: "2", value: 2},
 			},
 			wantErr: nil,
 		},

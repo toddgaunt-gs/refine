@@ -190,33 +190,6 @@ func lexGreaterThan(l *lexer) stateFunc {
 	}
 }
 
-func lexSymbol(l *lexer) stateFunc {
-	for r := l.get(); unicode.IsLetter(r) || unicode.IsDigit(r); r = l.get() {
-		// intentionally empty.
-	}
-	l.unget()
-	if l.index != l.start {
-		l.emit(tokenSymbol)
-		return lexStart
-	} else {
-		return l.errorf("invalid symbol")
-	}
-}
-
-func lexString(l *lexer) stateFunc {
-	if l.accept("`") {
-		for r := l.get(); r != '`'; r = l.get() {
-			if r == eof {
-				return l.errorf("reached EOF when reading string")
-			}
-		}
-		l.emit(tokenString)
-		return lexStart
-	} else {
-		return l.errorf("expected '`'")
-	}
-}
-
 func lexNumber(l *lexer) stateFunc {
 	if l.accept("123456789") {
 		for {
@@ -268,6 +241,33 @@ func lexNumber(l *lexer) stateFunc {
 	}
 
 	return l.errorf("expected an ASCII digit")
+}
+
+func lexSymbol(l *lexer) stateFunc {
+	for r := l.get(); unicode.IsLetter(r) || unicode.IsDigit(r); r = l.get() {
+		// intentionally empty.
+	}
+	l.unget()
+	if l.index != l.start {
+		l.emit(tokenSymbol)
+		return lexStart
+	} else {
+		return l.errorf("invalid symbol")
+	}
+}
+
+func lexString(l *lexer) stateFunc {
+	if l.accept("`") {
+		for r := l.get(); r != '`'; r = l.get() {
+			if r == eof {
+				return l.errorf("reached EOF when reading string")
+			}
+		}
+		l.emit(tokenString)
+		return lexStart
+	} else {
+		return l.errorf("expected '`'")
+	}
 }
 
 func lexAmpersand(l *lexer) stateFunc {
@@ -371,10 +371,14 @@ func (l *lexer) run() {
 	close(l.tokens)
 }
 
+func (l *lexer) text() string {
+	return l.input[l.start:l.index]
+}
+
 func (l *lexer) emit(k tokenKind) {
 	tok := token{
 		kind: k,
-		text: l.input[l.start:l.index],
+		text: l.text(),
 	}
 	l.tokens <- tok
 	l.start = l.index

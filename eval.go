@@ -3,7 +3,6 @@ package refine
 import (
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 type kind int
@@ -45,16 +44,6 @@ func newEvaluator() *evaluator {
 		val:  nil,
 	}
 
-	ev.symbols["true"] = box{
-		kind: boxBool,
-		val:  true,
-	}
-
-	ev.symbols["false"] = box{
-		kind: boxBool,
-		val:  false,
-	}
-
 	return ev
 }
 
@@ -62,7 +51,6 @@ func evalMultiply(left, right box) (box, error) {
 	if left.kind != right.kind {
 		return box{}, fmt.Errorf("type mismatch: %d != %d", left.kind, right.kind)
 	}
-
 	var v any
 	switch left.kind {
 	case boxInt:
@@ -371,13 +359,12 @@ func evalUnaryDereference(expr box) (box, error) {
 	}
 }
 
+func (e *evaluator) VisitBooleanExpression(be *booleanExpression) {
+	e.Result, e.Err = box{kind: boxBool, val: be.value}, nil
+}
+
 func (e *evaluator) VisitIntegerExpression(ie *integerExpression) {
-	i, err := strconv.Atoi(ie.text)
-	if err != nil {
-		e.Result, e.Err = box{}, fmt.Errorf("refine.eval: couldn't convert integer token %s to integer value!", ie.text)
-	} else {
-		e.Result, e.Err = box{kind: boxInt, val: i}, nil
-	}
+	e.Result, e.Err = box{kind: boxInt, val: ie.value}, nil
 }
 
 func (e *evaluator) VisitSymbolExpression(se *symbolExpression) {
